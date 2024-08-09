@@ -40,10 +40,14 @@ if __name__ == '__main__':
     for x in range(0, depth_map.size[0]):
         for y in range(0, depth_map.size[1]):
 
-            if x < pattern_width:
-                out_data[x, y] = int(pattern[x, y])  # Use generated pattern
-            else:
-                shift = int(depth_data[x, y][0] / args.pattern_div)  # 255 is closest
-                out_data[x, y] = out_data[x - pattern_width + shift, y]
+            try:
+                if x < pattern_width:
+                    out_data[x, y] = int(pattern[x, y])  # Use generated pattern
+                else:
+                    shift = int(depth_data[x, y][0] / args.pattern_div)  # 255 is closest
+                    out_data[x, y] = out_data[x - pattern_width + shift, y]
+            except IndexError as e:
+                print(f"An error occurred in the backend script. Most of the time, this can be fixed by trying "
+                      f"different resolutions for the input file. 360p will always work. Error: {e}")
 
     out_img.save(args.output)

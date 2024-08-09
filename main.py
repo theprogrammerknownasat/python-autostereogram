@@ -59,11 +59,11 @@ class VideoProcessor:
         input_path = os.path.join('input', frame_file)
         output_path = os.path.join('output', frame_file)
         subprocess.run(
-            ['python', 'magicpy.py', input_path, '-o', output_path, '-p 15'] if not self.invert else ['python',
+            ['python', 'magicpy.py', input_path, '-o', output_path] if not self.invert else ['python',
                                                                                                       'magicpy.py',
                                                                                                       input_path,
                                                                                                       '-o', output_path,
-                                                                                                      '-i', '-p 15'],
+                                                                                                      '-i'],
             check=True)
 
     def convert_frames(self):
