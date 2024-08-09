@@ -1,4 +1,5 @@
-import numpy, argparse
+import numpy
+import argparse
 from PIL import Image
 
 
