@@ -9,45 +9,57 @@ def gen_pattern(width, height):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description="Autostereogram (MagicEye) generator")
     parser.add_argument("depthmap", type=str,
                         help="Path to grayscale depth-map (white = close)")
-
     parser.add_argument("-o", "--output", type=str, default="output.png",
                         help="Path to write output image")
-
     parser.add_argument("-p", "--pattern-div", type=int, default=8,
-                        help="Width of generated pattern (width n means 1/n of depth-map width)")
-
-    parser.add_argument("-i", "--invert", action="store_true", help="Invert depthmap (white = far)")
+                        help="Base pattern width divisor")
+    parser.add_argument("-d", "--depth-factor", type=float, default=0.3,
+                        help="Depth effect strength (0.0-1.0)")
+    parser.add_argument("-i", "--invert", action="store_true", 
+                        help="Invert depthmap (white = far)")
 
     args = parser.parse_args()
-    invert = -1 if args.invert else 1
 
-    depth_map = Image.open(args.depthmap).convert("RGB")
+    depth_map = Image.open(args.depthmap).convert("L")  # Grayscale
     if args.invert:
         depth_map = Image.eval(depth_map, lambda x: 255 - x)
     depth_data = depth_map.load()
 
-    out_img = Image.new("L", depth_map.size)
+    width, height = depth_map.size
+    out_img = Image.new("L", (width, height))
     out_data = out_img.load()
 
-    pattern_width = depth_map.size[0] / args.pattern_div
-    pattern = gen_pattern(pattern_width, depth_map.size[1])
+    pattern_width = width // args.pattern_div
+    pattern = gen_pattern(pattern_width, height)
+    
+    # Constraint linking array to track same-pixel relationships
+    constraint = numpy.zeros((width, height), dtype=int)
+    for x in range(width):
+        for y in range(height):
+            constraint[x, y] = x  # Initially points to itself
 
     # Create stereogram
-    for x in range(0, depth_map.size[0]):
-        for y in range(0, depth_map.size[1]):
-
-            try:
-                if x < pattern_width:
-                    out_data[x, y] = int(pattern[x, y])  # Use generated pattern
-                else:
-                    shift = int(depth_data[x, y][0] / args.pattern_div)  # 255 is closest
-                    out_data[x, y] = out_data[x - pattern_width + shift, y]
-            except IndexError as e:
-                print(f"An error occurred in the backend script. Most of the time, this can be fixed by trying "
-                      f"different resolutions for the input file. 360p will always work. Error: {e}")
+    for y in range(height):
+        for x in range(width):
+            # Calculate separation based on depth
+            # depth_factor controls how much depth affects separation
+            depth = depth_data[x, y] / 255.0  # Normalize to 0-1
+            separation = int(pattern_width * (1.0 - args.depth_factor * depth))
+            
+            link = x - separation
+            
+            if link < 0:
+                # Initial pattern region
+                out_data[x, y] = int(pattern[x % pattern_width, y])
+            else:
+                # Follow constraint chain to find the actual source pixel
+                while constraint[link, y] != link and link >= 0:
+                    link = constraint[link, y]
+                
+                out_data[x, y] = out_data[link, y]
+                constraint[x, y] = link
 
     out_img.save(args.output)
